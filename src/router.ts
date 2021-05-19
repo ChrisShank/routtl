@@ -1,7 +1,7 @@
-import { RouteDefinition, Router, RouterOptions } from './types';
+import { RouterConfig, Router, RouterRoutes } from './types';
 
-export function createRouter<Routes extends RouteDefinition[]>(
-	options: RouterOptions<Routes>
+export function createRouter<Routes extends RouterRoutes<Routes>>(
+	config: RouterConfig<Routes>
 ): Router<Routes> {
 	return {} as any;
 }

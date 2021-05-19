@@ -1,5 +1,5 @@
 {
-  "name": "xstate-router",
+  "name": "xrouter",
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
@@ -9,5 +9,8 @@
   "devDependencies": {
     "typescript": "^4.2.3",
     "vite": "^2.2.3"
+  },
+  "dependencies": {
+    "ts-toolbelt": "^9.6.0"
   }
 }
