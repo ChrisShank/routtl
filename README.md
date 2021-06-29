@@ -42,8 +42,8 @@ const url = router.serialize({
 });
 ```
 
-## Framework agnostic
-`xrouter`  has been designed to decouple routing from the view layer, meaning it can be used with just about any component framework and state management library. That said its API is designed to integrate seamlessly with the Stately ecosystem like `xstate` and `xactor`. 
+## Framework-agnostic
+`xrouter` has been designed to decouple routing from the view layer, meaning it can be used with just about any component framework and state management library. That said its API is designed to integrate seamlessly with the Stately ecosystem like `xstate` and `xactor`. Will your app still work the same if you remove the router you are currebtly using? Can you router seamlessly integrate with an library or compojent framework? These are the questions we are exploring!
 
 ## Small scope
 Client-side routers have taken on quite a large scope and in a sense most have become their own specialized state management libraries. This is partly because routing intersects *all* layers of a web application. They tend to handle deserializing/serializing the URL, mapping components to URL, and routing behavior (e.g. navigation guards, redirects, ect.).  This results in an large API surface and larger bundle size. `xrouter` is trying to minimize its scope by only handling serializing/deserializing application state to/from the URL and wrapping around the History API. The goal is for routing behavior to be handled by a library like `xstate` .
@@ -68,11 +68,12 @@ Default parsers are implemented for primitive JS types, but you are free to defi
 ## Background (WIP)
 Background in client-side routing…'
 
-## Potential Ideas
-- [ ] Define route schema with template tagged literal 
+## Todo/Ideas
+- [ ] Inline route schema (using template tagged literal)
 ```ts
-path: path`/todo/${parameter('id', intParser)}?${query('someparam', { type: stringParser, optional: true })}``
+path: path`/todo/${param('id', intParser)}?${query('someparam', stringParser, { optional: true })}``
 ```
+- Nested routes
 - [ ] Auto-generate `xstate` actor (mentioned above)
 ## Inspiration
 Lots of inspiration for this project. `vue-router`, `navaid`, and `typesafe-routes` have been the most influential libraries.
