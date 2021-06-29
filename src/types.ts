@@ -1,4 +1,5 @@
 import { A } from 'ts-toolbelt';
+
 type Prop<T, K> = K extends keyof T ? T[K] : never;
 
 type RouterHistory = {};
@@ -78,17 +79,33 @@ type Route<Data> = {
 	hash?: string;
 };
 
+type RouteLocationRaw<Name extends keyof RouteData, RouteData> = Name | {
+  name: Name;
+  data: A.Compute<RouteData[Name]>;
+  hash?: string;
+}
+
+type Subscription = {
+  unsubscribe: () => void
+};
+
 export type Router<Routes, RouteData = ExtractRouteDataMap<Routes>> = {
+  /** Go to an arbitrary number forward or backwards in history. */
 	go(delta: number): void;
+  /** Navigate forward in history. Equivalent to `router.go(1) */
 	forward(): void;
+  /** Navigate backwards in history. Equivalent to `router.go(-1) */
 	backward(): void;
-	push<Name extends keyof RouteData>(name: Name, data: A.Compute<RouteData[Name]>): void;
-	replace<Name extends keyof RouteData>(name: Name, data: A.Compute<RouteData[Name]>): void;
+  /** Navigate to a new route. */
+	push<Name extends keyof RouteData>(location: RouteLocationRaw<Name, RouteData>): void;
+  /** Replace the current route with a new route. */
+	replace<Name extends keyof RouteData>(location: RouteLocationRaw<Name, RouteData>): void;
 	/** Serialize a route and its data into a URL. Useful for generating `href`s for type-safe */
-	serialize<Name extends keyof RouteData>(name: Name, data: A.Compute<RouteData[Name]>): string;
-	/** Given the name of a route, define a handler to run when that route matches the URL. */
-	on<Name extends keyof RouteData>(
+	serialize<Name extends keyof RouteData>(location: RouteLocationRaw<Name, RouteData>): string;
+	/** Given the name of a route, listen to when that route is matched. */
+	on<Name extends keyof RouteData>(listener: {
 		name: Name,
-		handler: (route: Route<A.Compute<RouteData[Name]>>) => void
-	): void;
+		listener: (route: Route<A.Compute<RouteData[Name]>>) => void
+  }
+	): Subscription;
 };

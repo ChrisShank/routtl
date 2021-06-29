@@ -8,13 +8,18 @@ const router = createRouter({
 			path: '/:baz&:bar',
 			schema: { bar: intParser, baz: intParser },
 		},
-	] as const,
+	] as const, // we should be able to narrow this
 });
 
-router.on('foo', (route) => {
-	console.log(route.data);
+router.on({
+  name: 'foo',
+  listener: ({data}) => {
+    console.log(data)
+  }
 });
 
-const url = router.serialize('foo', { bar: 2, baz: 4 });
+const url = router.serialize({ name: 'foo', data: { bar: 2, baz: 4 } });
 
-router.push('foo', { baz: 1, bar: 1 });
+router.push({ name: 'foo', data: { bar: 1, baz: 4 } });
+
+// const path = route`/todo/${parameter('id', intParser)}`
