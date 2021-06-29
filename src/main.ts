@@ -21,5 +21,3 @@ router.on({
 const url = router.serialize({ name: 'foo', data: { bar: 2, baz: 4 } });
 
 router.push({ name: 'foo', data: { bar: 1, baz: 4 } });
-
-// const path = route`/todo/${parameter('id', intParser)}`
