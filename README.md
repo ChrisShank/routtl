@@ -71,7 +71,7 @@ Background in client-side routing…'
 ## Potential Ideas
 - [ ] Define route schema with template tagged literal 
 ```ts
-path: path`/todo/${parameter('id', intParser)}?${query('someparam', { optional: true })}``
+path: path`/todo/${parameter('id', intParser)}?${query('someparam', { type: stringParser, optional: true })}``
 ```
 - [ ] Auto-generate `xstate` actor (mentioned above)
 ## Inspiration
