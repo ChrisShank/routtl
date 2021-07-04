@@ -1,23 +1,18 @@
 import { createWebHistory, createRouter, intParser } from './index';
+import { stringParser } from './parsers';
 
 const router = createRouter({
-	history: createWebHistory(),
-	routes: [
-		{
-			name: 'foo',
-			path: '/:baz&:bar',
-			schema: { bar: intParser, baz: intParser },
-		},
-	] as const, // we should be able to narrow this
+  history: createWebHistory(),
+  routes: [
+    {
+      name: 'todo',
+      path: '/todo/:id',
+      params: { id: intParser },
+    },
+    {
+      name: 'todos',
+      path: '/todos/:filters',
+      params: { filters: stringParser() },
+    },
+  ],
 });
-
-router.on({
-  name: 'foo',
-  listener: ({data}) => {
-    console.log(data)
-  }
-});
-
-const url = router.serialize({ name: 'foo', data: { bar: 2, baz: 4 } });
-
-router.push({ name: 'foo', data: { bar: 1, baz: 4 } });
