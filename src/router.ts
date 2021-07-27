@@ -1,20 +1,15 @@
-import { RouterConfig } from './router-config';
+import { RouterHistory } from './history/types';
+import { createMatcher, Route, RouteDefinition, RouteLocationRaw } from './matcher';
 
-export type Route<Data = any> = {
-  path: string;
-  fullPath: string;
-  data: Data;
-  hash?: string;
-};
-export type RouteLocationRaw =
-  | string
-  | {
-      name: string;
-      data: any;
-      hash?: string;
-    };
+export type RouteListener = (route: Route) => void;
+
 export type Subscription = {
   unsubscribe: () => void;
+};
+
+export type RouterConfig = {
+  history: RouterHistory;
+  routes: RouteDefinition[];
 };
 
 export type Router = {
@@ -31,9 +26,52 @@ export type Router = {
   /** Serialize a route and its data into a URL. Useful for generating `href`s for type-safe */
   serialize(location: RouteLocationRaw): string;
   /** Given the name of a route, listen to when that route is matched. */
-  subscribe(listener: (route: Route) => void): Subscription;
+  subscribe(listener: RouteListener): Subscription;
 };
 
-export function createRouter(config: RouterConfig): Router {
-  return {} as any;
+export function createRouter({ history, routes }: RouterConfig): Router {
+  const matcher = createMatcher(routes);
+  const { back, go, forward, push, replace } = history;
+  const listeners = new Set<RouteListener>();
+  let route: Route = matcher.deserialize(history.path);
+
+  function navigate(
+    locationOrUrl: RouteLocationRaw | string,
+    historyCallback?: (url: string) => void
+  ) {
+    const possibleRoute =
+      typeof locationOrUrl === 'string'
+        ? matcher.deserialize(locationOrUrl)
+        : matcher.match(locationOrUrl);
+
+    if (possibleRoute.fullPath !== route.fullPath) {
+      throw new Error(`[xrouter] Duplicate navigation detected for path ${route.fullPath}.`);
+    }
+
+    route = possibleRoute;
+    historyCallback?.(route.fullPath);
+    listeners.forEach((listener) => listener(route));
+  }
+
+  history.listen({
+    push: (url) => navigate(url, push),
+    pop: (url) => navigate(url),
+  });
+
+  return {
+    back,
+    forward,
+    go,
+    push: (location) => navigate(location, push),
+    replace: (location) => navigate(location, replace),
+    serialize: matcher.serialize,
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(route);
+
+      return {
+        unsubscribe: () => listeners.delete(listener),
+      };
+    },
+  };
 }

@@ -10,6 +10,7 @@ type RouterReceiveEvent =
 
 type RouterSendEvent = { type: 'navigate'; route: Route };
 
+// TODO: add error handling
 export function fromRouter(router: Router) {
   const callback: InvokeCallback<RouterReceiveEvent, RouterSendEvent> = (sendBack, onReceive) => {
     const subscription = router.subscribe((route) => {

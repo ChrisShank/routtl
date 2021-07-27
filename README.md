@@ -1,6 +1,6 @@
 # XRouter
 
-> Framework-agnostic, isomorphic router. It is lightweight (hopefully less than 2kb) and 100% type-safe.
+> Framework-agnostic, isomorphic router. Lightweight and 100% type-safe.
 
 ## Usage
 
