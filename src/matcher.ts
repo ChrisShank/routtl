@@ -1,56 +1,67 @@
 import { A } from 'ts-toolbelt';
 
-export type RouteParameter<Name extends string = string, Type = any> = {
+export type RouteParameter<Name extends string = string, Data = any> = {
   name: Name;
-  decoder: (blob: string) => Type;
-  encoder: (value: Type) => string;
+  decode: (blob: string) => Data;
+  encode: (data: Data) => string;
 };
 
-// TODO
-type RouteQuery = {};
+type InferRouteParameterName<P> = P extends RouteParameter<infer Name> ? Name : never;
 
-type ExtractRouteParameterName<P> = P extends RouteParameter<infer Name> ? Name : never;
-
-type ExtractRouteParameterType<P> = P extends RouteParameter<string, infer Type> ? Type : never;
-
-type ExtractRouteData<Parameters extends RouteParameter[]> = {
-  [Value in Parameters[keyof Parameters] as ExtractRouteParameterName<Value>]: ExtractRouteParameterType<Value>;
-};
-
-export type RouteMatcher<
-  Parameters extends RouteParameter[] = RouteParameter[],
-  Data = A.Compute<ExtractRouteData<Parameters>>
-> = {
-  match: (url: string) => Data | null;
-  serialize: (data: Data) => string;
-};
+type InferRouteParameterType<P> = P extends RouteParameter<string, infer Type> ? Type : never;
 
 export const string = <Name extends string>(name: Name): RouteParameter<Name, string> => ({
   name,
-  decoder: (blob) => blob,
-  encoder: (data) => data.toString(),
+  decode: (blob) => blob,
+  encode: (data) => data.toString(),
 });
 
 export const boolean = <Name extends string>(name: Name): RouteParameter<Name, boolean> => ({
   name,
-  decoder: (blob) => blob === 'true',
-  encoder: (data) => data.toString(),
+  decode: (blob) => blob === 'true',
+  encode: (data) => data.toString(),
 });
 
 export const int = <Name extends string>(name: Name): RouteParameter<Name, number> => ({
   name,
-  decoder: (blob) => parseInt(blob),
-  encoder: (data) => data.toString(),
+  decode: (blob) => parseInt(blob),
+  encode: (data) => data.toString(),
 });
 
-// TODO: figure out how to parse floats in the URL properly
 export const float = <Name extends string>(name: Name): RouteParameter<Name, number> => ({
   name,
-  decoder: (blob) => parseFloat(blob),
-  encoder: (data) => data.toString(),
+  decode: (blob) => parseFloat(blob),
+  encode: (data) => data.toString(),
 });
 
-const escapeRegex = (str: string) => str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+// The `Parameters` generic is not used, but necessary for proper inference in other types
+export type RouteParser<Parameters extends ReadonlyArray<RouteParameter> = [], Data = any> = {
+  readonly tokens: (string | RouteParameter)[];
+  decode: (url: string) => Data | null;
+  encode: (data: Data) => string;
+};
+
+type InferRouteParameters<P> = P extends RouteParser<infer Parameters> ? Parameters : never;
+
+type RouteValue = RouteParameter | RouteParser;
+
+type FlattenRouteParameters<
+  Values extends ReadonlyArray<unknown>,
+  Result extends ReadonlyArray<unknown> = []
+> = Values extends readonly []
+  ? Result
+  : Values extends readonly [infer Head, ...infer Tail]
+  ? Head extends RouteParser
+    ? FlattenRouteParameters<Tail, readonly [...Result, ...InferRouteParameters<Head>]>
+    : FlattenRouteParameters<Tail, readonly [...Result, Head]>
+  : never;
+
+type ExtractRouteData<Parameters extends ReadonlyArray<RouteParameter>> = {
+  [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterType<Value>;
+};
+
+const isRouteParser = (value: RouteValue): value is RouteParser =>
+  (value as any).tokens instanceof Array;
 
 const interleave = <A, B>(a: ReadonlyArray<A>, b: ReadonlyArray<B>): (A | B)[] =>
   a.reduce((acc, element, index) => {
@@ -59,30 +70,42 @@ const interleave = <A, B>(a: ReadonlyArray<A>, b: ReadonlyArray<B>): (A | B)[] =
     return acc;
   }, [] as (A | B)[]);
 
-const regexFromTokens = (tokens: (string | RouteParameter)[]) =>
-  new RegExp(tokens.map((x) => (typeof x === 'string' ? escapeRegex(x) : '([^/]+)')).join(''));
+const escapeRegex = (str: string) => str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-export function route<Parameters extends RouteParameter[]>(
+const regexFromTokens = (tokens: (string | RouteParameter)[]) =>
+  new RegExp(
+    tokens.map((token) => (typeof token === 'string' ? escapeRegex(token) : '([^/]+)')).join('')
+  );
+
+export function route<
+  Values extends ReadonlyArray<RouteValue>,
+  Data = A.Compute<ExtractRouteData<FlattenRouteParameters<Values>>>
+>(
   strings: TemplateStringsArray,
-  ...values: Parameters
-): RouteMatcher<Parameters> {
-  const tokens = interleave(strings, values).filter(
+  ...values: Values
+): RouteParser<FlattenRouteParameters<Values>, Data> {
+  const parameters = values.flatMap((value) =>
+    isRouteParser(value) ? value.tokens.filter((token) => typeof token !== 'string') : value
+  ) as RouteParameter[];
+  const tokens = interleave(strings, parameters).filter(
     (x) => x !== '' && x !== null && x !== undefined
   );
 
   const regex = regexFromTokens(tokens);
 
   return {
-    match(url) {
+    get tokens() {
+      return tokens;
+    },
+    decode(url) {
       const results = regex.exec(url);
 
       if (!results) return null;
 
-      // this type can not be derived in the
-      const data = {} as A.Compute<ExtractRouteData<Parameters>>;
+      const data = {} as Data;
 
-      for (let i = 0; i < values.length; i += 1) {
-        const token = values[i];
+      for (let i = 0; i < parameters.length; i += 1) {
+        const token = parameters[i];
 
         // Offset by one since the first value of results is the matched string
         const strParam = results[i + 1];
@@ -90,8 +113,8 @@ export function route<Parameters extends RouteParameter[]>(
         if (!strParam) return null;
 
         try {
-          const param = token.decoder(decodeURIComponent(strParam));
-          data[token.name as keyof typeof data] = param;
+          const param = token.decode(decodeURIComponent(strParam));
+          data[token.name as keyof Data] = param;
         } catch {
           // If any decoders throw an error then the URL does not match
           return null;
@@ -100,103 +123,13 @@ export function route<Parameters extends RouteParameter[]>(
 
       return data;
     },
-    serialize(data) {
+    encode(data) {
       return tokens
         .map((token) => {
           if (typeof token === 'string') return token;
-          return encodeURIComponent(
-            token.encoder(data[token.name as keyof A.Compute<ExtractRouteData<Parameters>>])
-          );
+          return encodeURIComponent(token.encode(data[token.name as keyof Data]));
         })
         .join('');
-    },
-  };
-}
-
-export type ExtractNameFromRouteDefinition<R> = R extends RouteDefinition<infer Name, any>
-  ? Name
-  : never;
-
-export type ExtractDataFromRouteDefinition<R> = R extends RouteDefinition<infer Name, infer Matcher>
-  ? Matcher
-  : never;
-
-type bar = ExtractDataFromRouteDefinition<{
-  readonly name: 'todo';
-  readonly path: RouteMatcher<
-    [RouteParameter<'id', number>],
-    {
-      id: number;
-    }
-  >;
-}>;
-
-export type RouteDefinition<
-  Name extends string = string,
-  Matcher extends RouteMatcher = RouteMatcher
-> = {
-  /** Name associated with the route definition. */
-  name: Name;
-  /** A path generated from the `route` helper. */
-  path: Matcher;
-};
-
-export type RouteLocation<Name extends string = string, Data = Record<string, any>> = {
-  /** Name associated with the route definition. */
-  name: Name;
-  /** Data object of params and query extracted from the route. */
-  data: Data;
-  /** *(Optional)* hash to append to the url. */
-  hash?: string;
-};
-
-export type Route<Name extends string = string, Data = Record<string, any>> = {
-  name: Name;
-  /** Path just including  */
-  path: string;
-  /** Full path including query and hash. */
-  fullPath: string;
-  data: Data;
-  /** Empty string if it doesn't exist. */
-  hash: string;
-};
-
-export function createMatcher<Routes extends ReadonlyArray<RouteDefinition>>(routes: Routes) {
-  const routeMatchers = routes.reduce((acc, route) => {
-    acc[route.name] = route.path;
-    return acc;
-  }, {} as Record<string, RouteMatcher>);
-
-  function match(location: RouteLocation): Route {
-    const { name, data = {}, hash = '' } = location;
-
-    const matcher = routeMatchers[name];
-
-    if (!matcher) {
-      throw new Error(`[xrouter] Route not matched for 'name': '${name}'.`);
-    }
-
-    const path = matcher.serialize(data);
-    const fullPath = path; /* + '#' + hash */
-
-    return { name, path, data, hash, fullPath };
-  }
-
-  return {
-    match,
-    serialize: (rawLocation: RouteLocation) => match(rawLocation).path,
-    deserialize(url: string): Route {
-      for (const routeDefinition of routes) {
-        const { name } = routeDefinition;
-        const routeMatcher = routeMatchers[name];
-        const data = routeMatcher.match(url);
-
-        if (data) {
-          return { name, path: url, data, hash: '', fullPath: url };
-        }
-      }
-
-      throw new Error(`[xrouter] Route not matched for path '${url}'.`);
     },
   };
 }
