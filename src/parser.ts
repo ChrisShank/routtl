@@ -40,7 +40,7 @@ export const float = param(parseFloat);
 // The `Parameters` generic is not used, but necessary for proper inference in other types
 export type RouteParser<
   Parameters extends ReadonlyArray<NamedRouteParameter> = ReadonlyArray<NamedRouteParameter>,
-  Data = any
+  Data = {}
 > = {
   readonly rank: number;
   readonly tokens: ReadonlyArray<string | NamedRouteParameter>;
