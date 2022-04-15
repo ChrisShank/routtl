@@ -2,6 +2,8 @@
 
 > Framework-agnostic, isomorphic router. Lightweight and 100% type-safe.
 
+**Still WIP, dont use in production**
+
 ## Usage
 
 ```ts
