@@ -7,23 +7,22 @@
 ## Usage
 
 ```ts
-import { createRouter } from 'xrouter';
+import { createRouter, createWebHistory, int } from 'xrouter';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       name: 'todos',
-      path: '/todos',
+      path: route`/todos`,
     },
     {
       name: 'new-todo',
-      path: '/todo/new',
+      path: route`/todo/new`,
     },
     {
       name: 'todo',
-      path: '/todo/:id',
-      schema: { id: intParser },
+      path: route`/todo/${int('id')}`,
     },
   ],
 });
