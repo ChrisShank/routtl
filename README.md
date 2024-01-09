@@ -9,12 +9,12 @@
 ```ts
 import { route, string } from 'routtl';
 
-const todoRoute = route`/hello/${['world', string]}`;
+const helloRoute = route`/hello/${['world', string]}`;
 
-const url = todoRoute.encode({ world: 'world' });
+const url = helloRoute.encode({ world: 'world' });
 //     ^ '/hello/world'
 
-const data = todoRoute.decode('/hello/world');
+const data = helloRoute.decode('/hello/world');
 //     ^ { world: 'world' }
 ```
 
@@ -25,6 +25,21 @@ const data = todoRoute.decode('/hello/world');
 ## Decoders
 
 Default decoders are provided for primitive JS types (e.g. string, number, boolean, date). A simple `Decoder` interface is provided to extend or build your own decoding. Additionally, a decoder factory is provided for arrays of arbitrary types.
+
+## Templating HTML
+
+When template HTML, you have use `route.encode()` to generate a `href` for an `<a>`. Here is an example using [`lit-html`](https://lit.dev/docs/templates/overview/) to template HTML:
+
+```ts
+import { route, string } from 'routtl';
+import { render, html } from 'lit-html';
+
+const helloRoute = route`/hello/${['world', string]}`;
+
+const url = helloRoute.encode({ world: 'world' });
+
+render(document.body, html`<a href="${url}">Link</a>`);
+```
 
 ## Roadmap
 

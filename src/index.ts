@@ -152,6 +152,7 @@ class RouteParser<
 
     return data;
   }
+
   encode(data: Data): string {
     return this.tokens
       .map((token) =>
