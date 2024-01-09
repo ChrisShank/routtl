@@ -2,7 +2,7 @@
 
 > Lightweight routing primitives.
 
-**Still WIP, dont use in production**
+**WIP, don't use in production. Expect occasional breaking changes until we hit stable in 1.0.0.**
 
 ## Usage
 
@@ -39,4 +39,4 @@ See the [guide](https://github.com/ChrisShank/routtl/blob/main/CONTRIBUTING.md).
 
 ## Inspiration
 
-Lots of inspiration for this project! `vue-router`, `navaid`, `typesafe-routes` have been influential in the design of these primitives.
+Lots of inspiration for this project! [@ncthbrt](https://github.com/ncthbrt) was crucial to the early prototypes. `vue-router`, `navaid`, `typesafe-routes` have been influential in the design of these primitives.
