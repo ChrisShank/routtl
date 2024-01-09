@@ -75,13 +75,20 @@ export type FlattenRouteParameters<
     : FlattenRouteParameters<Tail, readonly [...Result, Head]>
   : never;
 
-export type ExtractRouteData<Parameters extends ReadonlyArray<NamedRouteParameter>> = {
-  [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
-};
+type EmptyObject = Record<never, never>;
 
-type Prettify<T> = {
-  [K in keyof T]: T[K];
-} & {};
+export type ExtractRouteData<Parameters extends ReadonlyArray<NamedRouteParameter>> =
+  Parameters extends []
+    ? EmptyObject
+    : {
+        [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
+      };
+
+type Prettify<T> = T extends EmptyObject
+  ? T
+  : {
+      [K in keyof T]: T[K];
+    } & {};
 
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
@@ -103,15 +110,15 @@ class RouteParser<
     });
 
     // Do we need to filter empty strings?
-    this.tokens = Object.freeze(tokens);
+    this.tokens = tokens.filter((token) => !!token);
 
-    this.routeParameters = tokens.filter(
+    this.routeParameters = this.tokens.filter(
       (token) => typeof token !== 'string'
     ) as NamedRouteParameter[];
 
     this.regex = new RegExp(
       '^' +
-        tokens
+        this.tokens
           .map((token) =>
             typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : '([^/]+)'
           )

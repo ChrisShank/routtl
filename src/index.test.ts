@@ -1,6 +1,11 @@
-import test,  from 'node:test';
-import { route, num, string } from './index';
+import test from 'node:test';
+import assert from 'node:assert';
+import { route } from './index.js';
 
-test('works?', () => {
-  test.
-})
+test('base path', () => {
+  const r = route`/`;
+
+  assert.strictEqual(r.decode('/foo'), null);
+  assert.deepStrictEqual(r.decode('/'), {});
+  assert.strictEqual(r.encode({}), '/');
+});
