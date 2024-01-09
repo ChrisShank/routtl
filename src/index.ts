@@ -18,6 +18,19 @@ export const num: Decoder<number> = {
   encode: (data) => data.toString(),
 };
 
+export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
+  return {
+    decode: (str) => {
+      const arr = JSON.parse(str);
+      if (!(arr instanceof Array)) {
+        throw new Error('[routtl]: `array` decoder failed to parse array.');
+      }
+      return arr.map((value) => decoder.decode(value));
+    },
+    encode: (data) => JSON.stringify(data.map((value) => decoder.encode(value))),
+  };
+}
+
 export type NamedRouteParameter<Name extends string = string, Data = any> = readonly [
   name: Name,
   decoder: Decoder<Data>
@@ -76,6 +89,7 @@ class RouteParser<
   readonly regex: RegExp;
 
   constructor(strings: TemplateStringsArray, values: Values) {
+    // We should probably interleave these in the TTL instead.
     const tokens: Array<string | NamedRouteParameter> = [];
 
     strings.forEach((str, i) => {
@@ -138,8 +152,3 @@ export const route = <const Values extends ReadonlyArray<RouteValue>>(
   strings: TemplateStringsArray,
   ...values: Values
 ) => new RouteParser(strings, values);
-
-const foo = route`/foo/${['num', num]}/url`;
-
-const d = foo.decode('foo');
-const e = foo.encode({ num: 1 });
