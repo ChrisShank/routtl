@@ -7,9 +7,9 @@
 ## Usage
 
 ```ts
-import { route, str } from 'routtl';
+import { route, string } from 'routtl';
 
-const todoRoute = route`/hello/${['world', str]}`;
+const todoRoute = route`/hello/${['world', string]}`;
 
 const url = todoRoute.encode({ world: 'world' });
 //     ^ '/hello/world'
