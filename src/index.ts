@@ -1,32 +1,34 @@
 export interface Decoder<Data> {
+  /** Parse a string in data. */
   decode: (blob: string) => Data;
+  /** Convert data into a string */
   encode: (data: Data) => string;
 }
 
 export const string: Decoder<string> = {
-  decode: (str) => str,
+  decode: (blob) => blob,
   encode: (data) => data,
 };
 
 export const boolean: Decoder<boolean> = {
-  decode: (str) => str === 'true',
+  decode: (blob) => blob === 'true',
   encode: (data) => data.toString(),
 };
 
 export const num: Decoder<number> = {
-  decode: (str) => +str,
+  decode: (blob) => +blob,
   encode: (data) => data.toString(),
 };
 
 export const date: Decoder<Date> = {
-  decode: (str) => new Date(str),
+  decode: (blob) => new Date(blob),
   encode: (data) => data.toString(),
 };
 
 export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   return {
-    decode: (str) => {
-      const arr = JSON.parse(str);
+    decode: (blob) => {
+      const arr = JSON.parse(blob);
       if (!(arr instanceof Array)) {
         throw new Error('[routtl]: `array` decoder failed to parse array.');
       }
@@ -84,6 +86,7 @@ export type ExtractRouteData<Parameters extends ReadonlyArray<NamedRouteParamete
         [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
       };
 
+// Don't prettify if `T` is an empty object since it will return `{}`, which is not correct.
 type Prettify<T> = T extends EmptyObject
   ? T
   : {
