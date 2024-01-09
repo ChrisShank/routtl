@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/chrisshank/routtl#readme",
   "scripts": {
-    "dev": "tsc"
+    "build": "tsc"
   },
   "devDependencies": {
     "typescript": "^5.3.0"
