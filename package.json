@@ -1,42 +1,36 @@
 {
-  "name": "xrouter",
+  "name": "routtl",
   "version": "0.0.0",
-  "description": "Framework-agnostic, isomorphic router. Lightweight and 100% type-safe.",
+  "description": "Lightweight routing primitives.",
   "files": [
     "dist"
   ],
   "main": "dist/xrouter.umd.js",
   "unpkg": "dist/xrouter.iife.js",
   "jsdelivr": "dist/xrouter.iife.js",
-  "module": "./dist/xrouter.es.js",
+  "module": "./dist/index.js",
   "exports": {
     ".": {
-      "import": "./dist/xrouter.es.js",
-      "require": "./dist/xrouter.umd.js"
+      "import": "./dist/index.js"
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chrisshank/xrouter.git"
+    "url": "git+https://github.com/chrisshank/routtl.git"
   },
   "keywords": [
     "vue"
   ],
-  "author": "Evan You",
+  "author": "Christopher Shank",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/chrisshank/xrouter/discussions"
+    "url": "https://github.com/chrisshank/routtl/issues"
   },
-  "homepage": "https://github.com/chrisshank/xrouter#readme",
+  "homepage": "https://github.com/chrisshank/routtl#readme",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build"
+    "dev": "tsc"
   },
   "devDependencies": {
-    "@types/node": "^16.4.3",
-    "ts-toolbelt": "^9.6.0",
-    "typescript": "^4.2.3",
-    "vite": "^2.4.0",
-    "xstate": "^4.22.0"
+    "typescript": "^5.3.0"
   }
 }

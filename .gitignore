@@ -3,5 +3,3 @@ node_modules
 dist
 dist-ssr
 *.local
-_navaid.js
-_typesafe-routs.ts

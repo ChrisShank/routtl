@@ -2,19 +2,11 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
-    "moduleResolution": "Node",
+    "lib": ["ESNext"],
+    "moduleResolution": "Bundler",
     "strict": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "types": ["vite/client"],
-    "noEmit": true,
     "noUnusedLocals": true,
-    "noImplicitReturns": true,
-    "paths": {
-      "xrouter": ["./src"]
-    }
+    "noImplicitReturns": true
   },
-  "include": ["src", "examples"]
+  "include": ["src"]
 }
