@@ -1,4 +1,4 @@
-# XRouter
+# Routtl (pronounced rout·le)
 
 > Lightweight routing primitives.
 
@@ -20,11 +20,11 @@ const data = todoRoute.decode('/hello/world');
 
 ## Overview
 
-`Routtl` is a small set of primitives for defining routes and encoding/decoding data to/from that route. It is small (less than 500kb of JS), has no dependencies, and provides type-safe decoding. It uses type
+`Routtl` is a small set of primitives for defining routes and encoding/decoding data to/from that route. It is small (less than 500kb of JS), has no dependencies, and provides type-safe decoding. It uses JavaScript tagged template literals to provide a declarative, composable API for defining routes.
 
 ## Decoders
 
-Default decoders are provided for primitive JS types (e.g. string, number, boolean, date). A simple `Decoder` interface is provided to extend or build your own decoding. Additionally, a decoder factory is provided for arrays.
+Default decoders are provided for primitive JS types (e.g. string, number, boolean, date). A simple `Decoder` interface is provided to extend or build your own decoding. Additionally, a decoder factory is provided for arrays of arbitrary types.
 
 ## Roadmap
 

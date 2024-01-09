@@ -18,6 +18,11 @@ export const num: Decoder<number> = {
   encode: (data) => data.toString(),
 };
 
+export const date: Decoder<Date> = {
+  decode: (str) => new Date(str),
+  encode: (data) => data.toString(),
+};
+
 export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   return {
     decode: (str) => {
