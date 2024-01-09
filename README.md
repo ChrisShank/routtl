@@ -33,6 +33,10 @@ Default decoders are provided for primitive JS types (e.g. string, number, boole
 - [x] Nest Route Parsers
 - [ ] Decode query parameters
 
+## Contributing
+
+See the [guide](https://github.com/ChrisShank/routtl/blob/main/CONTRIBUTING.md).
+
 ## Inspiration
 
 Lots of inspiration for this project! `vue-router`, `navaid`, `typesafe-routes` have been influential in the design of these primitives.
