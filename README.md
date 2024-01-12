@@ -47,6 +47,7 @@ render(document.body, html`<a href="${url}">Link</a>`);
 - [x] Decoder type safely
 - [x] Nest Route Parsers
 - [ ] Decode query parameters
+- [ ] Ignore case and other options
 
 ## Contributing
 
