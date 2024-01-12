@@ -1,4 +1,5 @@
 export interface Decoder<Data> {
+  readonly matcher: string;
   /** Parse a string in data. */
   decode: (blob: string) => Data;
   /** Convert data into a string */
@@ -6,27 +7,32 @@ export interface Decoder<Data> {
 }
 
 export const string: Decoder<string> = {
+  matcher: '([^/]+)',
   decode: (blob) => blob,
   encode: (data) => data,
 };
 
 export const boolean: Decoder<boolean> = {
+  matcher: '([^/]+)',
   decode: (blob) => blob === 'true',
   encode: (data) => data.toString(),
 };
 
-export const num: Decoder<number> = {
+export const int: Decoder<number> = {
+  matcher: '([^/]+)',
   decode: (blob) => +blob,
   encode: (data) => data.toString(),
 };
 
 export const date: Decoder<Date> = {
+  matcher: '([^/]+)',
   decode: (blob) => new Date(blob),
   encode: (data) => data.toString(),
 };
 
 export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   return {
+    matcher: '([^/]+)',
     decode: (blob) => {
       const arr = JSON.parse(blob);
       if (!(arr instanceof Array)) {
@@ -86,6 +92,23 @@ export type ExtractRouteData<Parameters extends ReadonlyArray<NamedRouteParamete
         [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
       };
 
+export interface EncodedRouteData<Params> {
+  params: Params;
+  search: {};
+  hash: string;
+}
+
+export interface DecodedRouteData<Params> extends EncodedRouteData<Params> {
+  matched: boolean;
+}
+
+const emptyRoute: DecodedRouteData<EmptyObject> = Object.freeze({
+  matched: false,
+  params: {},
+  search: {},
+  hash: '',
+});
+
 // Don't prettify if `T` is an empty object since it will return `{}`, which is not correct.
 type Prettify<T> = T extends EmptyObject
   ? T
@@ -95,8 +118,8 @@ type Prettify<T> = T extends EmptyObject
 
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
-class RouteParser<
-  Values extends ReadonlyArray<RouteValue> = ReadonlyArray<RouteValue>,
+export class RouteParser<
+  Values extends ReadonlyArray<RouteValue> = [],
   Data = Prettify<ExtractRouteData<FlattenRouteParameters<Values>>>
 > {
   readonly tokens: ReadonlyArray<string | NamedRouteParameter>;
@@ -105,37 +128,55 @@ class RouteParser<
 
   constructor(strings: TemplateStringsArray, values: Values) {
     // We should probably interleave these in the TTL instead.
-    const tokens: Array<string | NamedRouteParameter> = [];
-
-    strings.forEach((str, i) => {
-      const value = values[i];
-      tokens.push(str, ...(value instanceof RouteParser ? value.tokens : [value]));
-    });
-
-    // Do we need to filter empty strings?
-    this.tokens = tokens.filter((token) => !!token);
+    this.tokens = strings
+      .flatMap((str, i) => {
+        const value = values[i];
+        return [str, ...(value instanceof RouteParser ? value.tokens : [value])];
+      })
+      .filter((token) => !!token);
 
     this.routeParameters = this.tokens.filter(
       (token) => typeof token !== 'string'
     ) as NamedRouteParameter[];
 
+    const { duplicates } = this.routeParameters
+      .map((param) => param[0])
+      .reduce(
+        (acc, name) => {
+          if (acc.names.has(name)) {
+            acc.duplicates.push(name);
+          } else {
+            acc.names.add(name);
+          }
+          return acc;
+        },
+        { duplicates: [] as string[], names: new Set<string>() }
+      );
+
+    if (duplicates.length > 0) {
+      throw new Error(
+        `Duplicate params detected: ${duplicates.map((name) => `'${name}'`).join(', ')}`
+      );
+    }
+
     this.regex = new RegExp(
       '^' +
         this.tokens
           .map((token) =>
-            typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : '([^/]+)'
+            typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : token[1].matcher
           )
           .join('') +
         '$'
     );
   }
 
-  decode(url: string): Data | null {
-    const results = this.regex.exec(url);
+  decode(path: string): DecodedRouteData<Data> | DecodedRouteData<EmptyObject> {
+    const { pathname, searchParams, hash } = new URL(path, 'https://example.com');
 
-    if (results == null) return null;
+    const results = this.regex.exec(pathname);
+    if (results == null) return emptyRoute;
 
-    const data = {} as Data;
+    const params = {} as Data;
 
     for (let i = 0; i < this.routeParameters.length; i += 1) {
       const [name, decoder] = this.routeParameters[i];
@@ -143,23 +184,39 @@ class RouteParser<
       // Offset by one since the first value of results is the matched string
       const strParam = results[i + 1];
 
-      if (strParam === undefined) return null;
+      if (strParam === undefined) return emptyRoute;
 
       // Catch decode errors?
       const param = decoder.decode(decodeURIComponent(strParam));
-      data[name as keyof Data] = param;
+      params[name as keyof Data] = param;
     }
 
-    return data;
+    return {
+      matched: true,
+      params,
+      search: Object.fromEntries(searchParams),
+      hash,
+    };
   }
 
-  encode(data: Data): string {
-    return this.tokens
+  encode(data: EncodedRouteData<Data>): string {
+    const search = new URLSearchParams(data.search);
+    const path = this.tokens
       .map((token) =>
         typeof token === 'string'
           ? token
-          : encodeURIComponent(token[1].encode(data[token[0] as keyof Data]))
+          : encodeURIComponent(token[1].encode(data.params[token[0] as keyof Data]))
       )
+      .join('');
+
+    return `${path}${search.size === 0 ? '' : '?'}${search}${data.hash === '' ? '' : '#'}${
+      data.hash
+    }`;
+  }
+
+  toString() {
+    return this.tokens
+      .map((token) => (typeof token === 'string' ? token : `:${token[0]}`))
       .join('');
   }
 }

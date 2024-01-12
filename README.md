@@ -55,3 +55,5 @@ See the [guide](https://github.com/ChrisShank/routtl/blob/main/CONTRIBUTING.md).
 ## Inspiration
 
 Lots of inspiration for this project! [@ncthbrt](https://github.com/ncthbrt) was crucial to the early prototypes. `vue-router`, `navaid`, `typesafe-routes` have been influential in the design of these primitives.
+
+There is allow an API called [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) that has recently emerged from the WHATWG standards body that addresses _some_ of the problems `routtle` is solving. At the time of this writing most browsers besides Firefox and Safari support it and a [polyfill](https://github.com/kenchris/urlpattern-polyfill) is available.

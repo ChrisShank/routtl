@@ -31,7 +31,8 @@
   ],
   "scripts": {
     "build": "tsc && node --test",
-    "dev": "tsc -w & node --test --watch"
+    "dev": "tsc -w & node --test --watch",
+    "demo": "pnpx http-server"
   },
   "devDependencies": {
     "@types/node": "^20.10.7",
