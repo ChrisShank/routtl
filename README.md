@@ -41,6 +41,20 @@ const url = helloRoute.encode({ world: 'world' });
 render(document.body, html`<a href="${url}">Link</a>`);
 ```
 
+## Composing
+`RouteParser`s can be composed together as shown here:
+
+```ts
+import { route, string } from 'routtl';
+
+const helloRoute = route`/hello`;
+
+const worldRoute = route`${helloRoute}/world/${['id', string]}`;
+
+const url = helloRoute.encode({ id: 'foo' });
+//     ^ '/hello/world/foo'
+```
+
 ## Roadmap
 
 - [x] Built-in decoders
