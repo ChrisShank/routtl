@@ -122,24 +122,24 @@ export class RouteParser<
   Values extends ReadonlyArray<RouteValue> = [],
   Data = Prettify<ExtractRouteData<FlattenRouteParameters<Values>>>
 > {
-  readonly tokens: ReadonlyArray<string | NamedRouteParameter>;
-  readonly routeParameters: NamedRouteParameter[];
-  readonly regex: RegExp;
+  readonly #tokens: ReadonlyArray<string | NamedRouteParameter>;
+  readonly #routeParameters: NamedRouteParameter[];
+  readonly #regex: RegExp;
 
   constructor(strings: TemplateStringsArray, values: Values) {
     // We should probably interleave these in the TTL instead.
-    this.tokens = strings
+    this.#tokens = strings
       .flatMap((str, i) => {
         const value = values[i];
-        return [str, ...(value instanceof RouteParser ? value.tokens : [value])];
+        return [str, ...(value instanceof RouteParser ? value.#tokens : [value])];
       })
       .filter((token) => !!token);
 
-    this.routeParameters = this.tokens.filter(
+    this.#routeParameters = this.#tokens.filter(
       (token) => typeof token !== 'string'
     ) as NamedRouteParameter[];
 
-    const { duplicates } = this.routeParameters
+    const { duplicates } = this.#routeParameters
       .map((param) => param[0])
       .reduce(
         (acc, name) => {
@@ -159,9 +159,9 @@ export class RouteParser<
       );
     }
 
-    this.regex = new RegExp(
+    this.#regex = new RegExp(
       '^' +
-        this.tokens
+        this.#tokens
           .map((token) =>
             typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : token[1].matcher
           )
@@ -172,14 +172,14 @@ export class RouteParser<
 
   decode(path: string): DecodedRouteData<Data> | DecodedRouteData<EmptyObject> {
     const { pathname, searchParams, hash } = new URL(path, 'https://example.com');
+    const results = this.#regex.exec(pathname);
 
-    const results = this.regex.exec(pathname);
     if (results == null) return emptyRoute;
 
     const params = {} as Data;
 
-    for (let i = 0; i < this.routeParameters.length; i += 1) {
-      const [name, decoder] = this.routeParameters[i];
+    for (let i = 0; i < this.#routeParameters.length; i += 1) {
+      const [name, decoder] = this.#routeParameters[i];
 
       // Offset by one since the first value of results is the matched string
       const strParam = results[i + 1];
@@ -201,7 +201,7 @@ export class RouteParser<
 
   encode(data: EncodedRouteData<Data>): string {
     const search = new URLSearchParams(data.search);
-    const path = this.tokens
+    const path = this.#tokens
       .map((token) =>
         typeof token === 'string'
           ? token
@@ -215,7 +215,7 @@ export class RouteParser<
   }
 
   toString() {
-    return this.tokens
+    return this.#tokens
       .map((token) => (typeof token === 'string' ? token : `:${token[0]}`))
       .join('');
   }
