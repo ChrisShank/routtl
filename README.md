@@ -28,7 +28,7 @@ Default decoders are provided for primitive JS types (e.g. string, number, boole
 
 ## Templating HTML
 
-When template HTML, you have use `route.encode()` to generate a `href` for an `<a>`. Here is an example using [`lit-html`](https://lit.dev/docs/templates/overview/) to template HTML:
+When templating HTML, you have use `route.encode()` to generate a `href` for an `<a>`. Here is an example using [`lit-html`](https://lit.dev/docs/templates/overview/) as a template engine:
 
 ```ts
 import { route, string } from 'routtl';
@@ -39,6 +39,20 @@ const helloRoute = route`/hello/${['world', string]}`;
 const url = helloRoute.encode({ world: 'world' });
 
 render(document.body, html`<a href="${url}">Link</a>`);
+```
+
+## Composing
+`RouteParser`s can be composed together as shown here:
+
+```ts
+import { route, string } from 'routtl';
+
+const helloRoute = route`/hello`;
+
+const worldRoute = route`${helloRoute}/world/${['id', string]}`;
+
+const url = helloRoute.encode({ id: 'foo' });
+//     ^ '/hello/world/foo'
 ```
 
 ## Roadmap
