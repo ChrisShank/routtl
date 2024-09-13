@@ -2,12 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { DecodedRouteData, RouteParser, route, string } from './index.js';
 
-interface DecodeFixture {
-  route: () => RouteParser;
-  input: string;
-  expected_match: DecodedRouteData<Record<string, any>>;
-  error?: true;
-}
+type DecodeFixture =
+  | {
+      route: () => RouteParser;
+      input: string;
+      expected_match: DecodedRouteData<Record<string, any>>;
+      error?: undefined;
+    }
+  | {
+      route: () => RouteParser;
+      input: string;
+      expected_match?: undefined;
+      error: true;
+    };
 
 // Adapted from the URLPattern test suite: https://github.com/kenchris/urlpattern-polyfill/blob/main/test/urlpatterntestdata.json
 const fixtures: DecodeFixture[] = [
@@ -229,12 +236,6 @@ const fixtures: DecodeFixture[] = [
   {
     route: () => route`/${['id', string]}/${['id', string]}`,
     input: 'Throw error',
-    expected_match: {
-      matched: true,
-      params: {},
-      search: {},
-      hash: '',
-    },
     error: true,
   },
 ];
