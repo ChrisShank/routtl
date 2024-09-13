@@ -188,7 +188,7 @@ export class RouteParser<
     return {
       params,
       search: Object.fromEntries(searchParams),
-      hash,
+      hash: hash.slice(1),
     };
   }
 
