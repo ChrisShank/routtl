@@ -33,7 +33,13 @@ export const float: Decoder<number> = {
 export const date: Decoder<Date> = {
   matcher: '([^/]+)',
   decode: (blob) => new Date(blob),
-  encode: (data) => data.toString(),
+  encode: (data) => data.toISOString().split('T')[0],
+};
+
+export const datetime: Decoder<Date> = {
+  matcher: '([^/]+)',
+  decode: (blob) => new Date(blob),
+  encode: (data) => data.toISOString(),
 };
 
 export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
@@ -91,7 +97,7 @@ export type FlattenRouteParameters<
     : FlattenRouteParameters<Tail, [...Result, Head]>
   : never;
 
-type EmptyObject = Record<never, never>;
+export type EmptyObject = Record<never, never>;
 
 export type ExtractRouteData<Parameters extends Array<NamedRouteParameter>> = Parameters extends []
   ? EmptyObject
@@ -203,8 +209,9 @@ export class RouteParser<
   }
 
   encode(data: RouteData<Data>): string {
-    const search = new URLSearchParams(data.search);
-    const path = this.#tokens
+    const url = new URL('https://a.com');
+
+    url.pathname = this.#tokens
       .map((token) =>
         typeof token === 'string'
           ? token
@@ -212,15 +219,17 @@ export class RouteParser<
       )
       .join('');
 
-    return `${path}${search.size === 0 ? '' : '?'}${search}${data.hash === '' ? '' : '#'}${
-      data.hash
-    }`;
-  }
+    if (data.search) {
+      for (const [key, value] of Object.entries(data.search)) {
+        url.searchParams.append(key, String(value));
+      }
+    }
 
-  toString() {
-    return this.#tokens
-      .map((token) => (typeof token === 'string' ? token : `:${token[0]}`))
-      .join('');
+    if (data.hash) {
+      url.hash = data.hash;
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
   }
 }
 
