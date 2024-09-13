@@ -1,65 +1,49 @@
-export interface Decoder<Data> {
-  readonly matcher: string;
-  /** Parse a string in data. */
-  decode: (blob: string) => Data;
-  /** Convert data into a string */
-  encode: (data: Data) => string;
-}
-
-export const string: Decoder<string> = {
-  matcher: '([^/]+)',
-  decode: (blob) => blob,
-  encode: (data) => data,
-};
-
-export const boolean: Decoder<boolean> = {
-  matcher: '([^/]+)',
-  decode: (blob) => blob === 'true',
-  encode: (data) => data.toString(),
-};
-
-export const int: Decoder<number> = {
-  matcher: '([^/]+)',
-  decode: (blob) => +blob,
-  encode: (data) => data.toString(),
-};
-
-export const float: Decoder<number> = {
-  matcher: '([^/]+)',
-  decode: (blob) => parseFloat(blob),
-  encode: (data) => data.toString(),
-};
-
-export const date: Decoder<Date> = {
-  matcher: '([^/]+)',
-  decode: (blob) => new Date(blob),
-  encode: (data) => data.toISOString().split('T')[0],
-};
-
-export const datetime: Decoder<Date> = {
-  matcher: '([^/]+)',
-  decode: (blob) => new Date(blob),
-  encode: (data) => data.toISOString(),
-};
-
-export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
-  return {
-    matcher: '([^/]+)',
-    decode: (blob) => {
-      const arr = JSON.parse(blob);
-      if (!(arr instanceof Array)) {
-        throw new Error('[routtl]: `array` decoder failed to parse array.');
-      }
-      return arr.map((value) => decoder.decode(value));
-    },
-    encode: (data) => JSON.stringify(data.map((value) => decoder.encode(value))),
-  };
-}
-
 export type NamedRouteParameter<Name extends string = string, Data = any> = [
   name: Name,
   decoder: Decoder<Data>
 ];
+
+export interface Decoder<Data> {
+  <Name extends string>(name: Name): NamedRouteParameter<Name, Data>;
+  decode: (blob: string) => Data;
+  encode: (data: Data) => string;
+}
+
+export const string: Decoder<string> = <Name extends string>(name: Name) => [name, string];
+string.decode = (blob) => blob;
+string.encode = (data) => data;
+
+export const boolean: Decoder<boolean> = <Name extends string>(name: Name) => [name, boolean];
+boolean.decode = (blob) => blob === 'true';
+boolean.encode = (data) => data.toString();
+
+export const num: Decoder<number> = <Name extends string>(name: Name) => [name, num];
+num.decode = (blob) => +blob;
+num.encode = (data) => data.toString();
+
+export const date: Decoder<Date> = <Name extends string>(name: Name) => [name, date];
+date.decode = (blob) => new Date(blob);
+date.encode = (data) => data.toISOString().split('T')[0];
+
+export const datetime: Decoder<Date> = <Name extends string>(name: Name) => [name, datetime];
+datetime.decode = (blob) => new Date(blob);
+datetime.encode = (data) => data.toISOString();
+
+export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
+  const arrayDecoder: Decoder<Data[]> = <Name extends string>(name: Name) => [name, arrayDecoder];
+
+  arrayDecoder.decode = (blob) => {
+    const arr = JSON.parse(blob);
+    if (!(arr instanceof Array)) {
+      throw new Error('[routtl]: `array` decoder failed to parse array.');
+    }
+    return arr.map((value) => decoder.decode(value));
+  };
+
+  arrayDecoder.encode = (data) => JSON.stringify(data.map((value) => decoder.encode(value)));
+
+  return arrayDecoder;
+}
 
 export type RouteParameter<Data = any> = Decoder<Data> & {
   <Name extends string>(name: Name): NamedRouteParameter<Name, Data>;
@@ -170,7 +154,7 @@ export class RouteParser<
       '^' +
         this.#tokens
           .map((token) =>
-            typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : token[1].matcher
+            typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : '([^/]+)'
           )
           .join('') +
         '$'
