@@ -68,7 +68,7 @@ export type InferRouteData<Parser> = Parser extends RouteParser<
 
 export type RouteValue = NamedRouteParameter | RouteParser;
 
-export type RouteValues = Array<RouteValue> | Array<[...RouteValue[], URLSearchParams]>;
+export type RouteValues = Array<RouteValue> /* | [...RouteValue[], Decoder<URLSearchParams>] */;
 
 export type FlattenRouteParameters<
   Values extends Array<unknown>,
@@ -105,12 +105,16 @@ type Prettify<T> = T extends EmptyObject
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
 export class RouteParser<
-  Values extends Array<RouteValue> = [],
+  Values extends RouteValues = [],
   Data = Prettify<ExtractRouteData<FlattenRouteParameters<Values>>>
 > {
   readonly #tokens: Array<string | NamedRouteParameter>;
-  readonly #routeParameters: NamedRouteParameter[];
+  readonly #routeParameters: NamedRouteParameter[] = [];
   readonly #regex: RegExp;
+
+  get tokens() {
+    return this.#tokens;
+  }
 
   constructor(strings: TemplateStringsArray, values: Values) {
     // We should probably interleave these in the TTL instead.
@@ -126,23 +130,21 @@ export class RouteParser<
       })
       .filter((token) => !!token);
 
-    this.#routeParameters = this.#tokens.filter(
-      (token) => typeof token !== 'string'
-    ) as NamedRouteParameter[];
+    let regexStrings: string[] = [];
+    let duplicates: string[] = [];
+    const uniqueNames = new Set<string>();
 
-    const { duplicates } = this.#routeParameters
-      .map((param) => param[0])
-      .reduce(
-        (acc, name) => {
-          if (acc.names.has(name)) {
-            acc.duplicates.push(name);
-          } else {
-            acc.names.add(name);
-          }
-          return acc;
-        },
-        { duplicates: [] as string[], names: new Set<string>() }
-      );
+    for (const token of this.#tokens) {
+      if (typeof token === 'string') {
+        regexStrings.push(token.replace(escapeRegex, '\\$&'));
+      } else {
+        regexStrings.push('([^/]+)');
+        this.#routeParameters.push(token);
+
+        const name = token[0];
+        uniqueNames.has(name) ? duplicates.push(name) : uniqueNames.add(name);
+      }
+    }
 
     if (duplicates.length > 0) {
       throw new Error(
@@ -150,15 +152,7 @@ export class RouteParser<
       );
     }
 
-    this.#regex = new RegExp(
-      '^' +
-        this.#tokens
-          .map((token) =>
-            typeof token === 'string' ? token.replace(escapeRegex, '\\$&') : '([^/]+)'
-          )
-          .join('') +
-        '$'
-    );
+    this.#regex = new RegExp('^' + regexStrings.join('') + '$');
   }
 
   decode(path: string): RouteData<Data> | null {
@@ -217,7 +211,7 @@ export class RouteParser<
   }
 }
 
-export const route = <const Values extends Array<RouteValue>>(
+export const route = <const Values extends RouteValues>(
   strings: TemplateStringsArray,
   ...values: Values
 ) => new RouteParser(strings, values);
