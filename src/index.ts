@@ -45,45 +45,15 @@ export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   return arrayDecoder;
 }
 
-export type RouteParameter<Data = any> = Decoder<Data> & {
-  <Name extends string>(name: Name): NamedRouteParameter<Name, Data>;
-};
-
 export type InferRouteParameterName<P> = P extends NamedRouteParameter<infer Name> ? Name : never;
 
 export type InferRouteParameterData<P> = P extends NamedRouteParameter<string, infer Data>
   ? Data
   : never;
 
-export type InferRouteParserParameters<Parser> = Parser extends RouteParser<infer Parameters>
-  ? Parameters
-  : never;
-
-export type InferRouteData<Parser> = Parser extends RouteParser<
-  Array<NamedRouteParameter>,
-  infer Data
->
-  ? Data
-  : never;
-
-export type RouteValue = NamedRouteParameter | RouteParser;
-
-export type RouteValues = Array<RouteValue> /* | [...RouteValue[], Decoder<URLSearchParams>] */;
-
-export type FlattenRouteParameters<
-  Values extends Array<unknown>,
-  Result extends Array<unknown> = []
-> = Values extends []
-  ? Result
-  : Values extends [infer Head, ...infer Tail]
-  ? Head extends RouteParser
-    ? FlattenRouteParameters<Tail, [...Result, ...InferRouteParserParameters<Head>]>
-    : FlattenRouteParameters<Tail, [...Result, Head]>
-  : never;
-
 export type EmptyObject = Record<never, never>;
 
-export type ExtractRouteData<Parameters extends Array<NamedRouteParameter>> = Parameters extends []
+export type ExtractRouteData<Parameters extends NamedRouteParameter[]> = Parameters extends []
   ? EmptyObject
   : {
       [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
@@ -95,6 +65,14 @@ export interface RouteData<Params> {
   hash?: string;
 }
 
+type ExtractRouteParams<Params extends unknown[], Result extends unknown[] = []> = Params extends []
+  ? Result
+  : Params extends [infer Head, ...infer Tail]
+  ? Head extends NamedRouteParameter
+    ? ExtractRouteParams<Tail, [...Result, Head]>
+    : ExtractRouteParams<Tail, Result>
+  : never;
+
 // Don't prettify if `T` is an empty object since it will return `{}`, which is not correct.
 type Prettify<T> = T extends EmptyObject
   ? T
@@ -105,8 +83,8 @@ type Prettify<T> = T extends EmptyObject
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
 export class RouteParser<
-  Values extends RouteValues = [],
-  Data = Prettify<ExtractRouteData<FlattenRouteParameters<Values>>>
+  Tokens extends Array<string | NamedRouteParameter> = [],
+  Params = Prettify<ExtractRouteData<ExtractRouteParams<Tokens>>>
 > {
   readonly #tokens: Array<string | NamedRouteParameter>;
   readonly #routeParameters: NamedRouteParameter[] = [];
@@ -116,19 +94,14 @@ export class RouteParser<
     return this.#tokens;
   }
 
-  constructor(strings: TemplateStringsArray, values: Values) {
+  constructor(tokens: Tokens) {
     // We should probably interleave these in the TTL instead.
-    this.#tokens = strings
-      .flatMap((str, i) => {
-        // Inject a slash into the first string since URL will do that for us
-        if (i === 0 && !str.startsWith('/')) {
-          str = '/' + str;
-        }
+    this.#tokens = tokens;
 
-        const value = values[i];
-        return [str, ...(value instanceof RouteParser ? value.#tokens : [value])];
-      })
-      .filter((token) => !!token);
+    const firstToken = tokens[0];
+    if (typeof firstToken === 'string' && !firstToken.startsWith('/')) {
+      tokens[0] = '/' + firstToken;
+    }
 
     let regexStrings: string[] = [];
     let duplicates: string[] = [];
@@ -155,7 +128,7 @@ export class RouteParser<
     this.#regex = new RegExp('^' + regexStrings.join('') + '$');
   }
 
-  decode(path: string): RouteData<Data> | null {
+  decode(path: string): RouteData<Params> | null {
     // In the future we can use `URL.parse()`.
     if (!URL.canParse(path, 'https://a.com')) return null;
 
@@ -164,7 +137,7 @@ export class RouteParser<
 
     if (results === null) return null;
 
-    const params = {} as Data;
+    const params = {} as Params;
 
     for (let i = 0; i < this.#routeParameters.length; i += 1) {
       const [name, decoder] = this.#routeParameters[i];
@@ -176,7 +149,7 @@ export class RouteParser<
 
       // Catch decode errors?
       const param = decoder.decode(decodeURIComponent(strParam));
-      params[name as keyof Data] = param;
+      params[name as keyof Params] = param;
     }
 
     return {
@@ -186,14 +159,14 @@ export class RouteParser<
     };
   }
 
-  encode(data: RouteData<Data>): string {
+  encode(data: RouteData<Params>): string {
     const url = new URL('https://a.com');
 
     url.pathname = this.#tokens
       .map((token) =>
         typeof token === 'string'
           ? token
-          : encodeURIComponent(token[1].encode(data.params[token[0] as keyof Data]))
+          : encodeURIComponent(token[1].encode(data.params[token[0] as keyof Params]))
       )
       .join('');
 
@@ -211,7 +184,40 @@ export class RouteParser<
   }
 }
 
-export const route = <const Values extends RouteValues>(
+type InferRouteParserParameters<Parser> = Parser extends RouteParser<infer Tokens>
+  ? ExtractRouteParams<Tokens>
+  : never;
+
+type FlattenRouteParameters<
+  Values extends unknown[],
+  Result extends unknown[] = []
+> = Values extends []
+  ? Result
+  : Values extends [infer Head, ...infer Tail]
+  ? Head extends RouteParser
+    ? FlattenRouteParameters<Tail, [...Result, ...InferRouteParserParameters<Head>]>
+    : FlattenRouteParameters<Tail, [...Result, Head]>
+  : never;
+
+type InterleaveRouteParams<
+  Params extends unknown[],
+  Result extends unknown[] = []
+> = Params extends []
+  ? [...Result, string]
+  : Params extends [infer Head, ...infer Tail]
+  ? InterleaveRouteParams<Tail, [...Result, string, Head]>
+  : never;
+
+export const route = <const Values extends (NamedRouteParameter | RouteParser)[]>(
   strings: TemplateStringsArray,
   ...values: Values
-) => new RouteParser(strings, values);
+) => {
+  const tokens = strings.flatMap((str, i) => {
+    if (i >= values.length) return str;
+
+    const value = values[i];
+    return [str, ...(value instanceof RouteParser ? value.tokens : [value])];
+  }) as InterleaveRouteParams<FlattenRouteParameters<Values>>;
+
+  return new RouteParser(tokens);
+};
