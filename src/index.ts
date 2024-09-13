@@ -104,8 +104,8 @@ export interface DecodedRouteData<Params> extends EncodedRouteData<Params> {
 
 const emptyRoute: DecodedRouteData<EmptyObject> = Object.freeze({
   matched: false,
-  params: {},
-  search: {},
+  params: Object.freeze({}),
+  search: Object.freeze({}),
   hash: '',
 });
 
