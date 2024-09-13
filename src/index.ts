@@ -24,6 +24,12 @@ export const int: Decoder<number> = {
   encode: (data) => data.toString(),
 };
 
+export const float: Decoder<number> = {
+  matcher: '([^/]+)',
+  decode: (blob) => parseFloat(blob),
+  encode: (data) => data.toString(),
+};
+
 export const date: Decoder<Date> = {
   matcher: '([^/]+)',
   decode: (blob) => new Date(blob),
@@ -44,7 +50,7 @@ export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   };
 }
 
-export type NamedRouteParameter<Name extends string = string, Data = any> = readonly [
+export type NamedRouteParameter<Name extends string = string, Data = any> = [
   name: Name,
   decoder: Decoder<Data>
 ];
@@ -64,7 +70,7 @@ export type InferRouteParserParameters<Parser> = Parser extends RouteParser<infe
   : never;
 
 export type InferRouteData<Parser> = Parser extends RouteParser<
-  ReadonlyArray<NamedRouteParameter>,
+  Array<NamedRouteParameter>,
   infer Data
 >
   ? Data
@@ -72,42 +78,32 @@ export type InferRouteData<Parser> = Parser extends RouteParser<
 
 export type RouteValue = NamedRouteParameter | RouteParser;
 
+export type RouteValues = Array<RouteValue> | Array<[...RouteValue[], URLSearchParams]>;
+
 export type FlattenRouteParameters<
-  Values extends ReadonlyArray<unknown>,
-  Result extends ReadonlyArray<unknown> = []
-> = Values extends readonly []
+  Values extends Array<unknown>,
+  Result extends Array<unknown> = []
+> = Values extends []
   ? Result
-  : Values extends readonly [infer Head, ...infer Tail]
+  : Values extends [infer Head, ...infer Tail]
   ? Head extends RouteParser
-    ? FlattenRouteParameters<Tail, readonly [...Result, ...InferRouteParserParameters<Head>]>
-    : FlattenRouteParameters<Tail, readonly [...Result, Head]>
+    ? FlattenRouteParameters<Tail, [...Result, ...InferRouteParserParameters<Head>]>
+    : FlattenRouteParameters<Tail, [...Result, Head]>
   : never;
 
 type EmptyObject = Record<never, never>;
 
-export type ExtractRouteData<Parameters extends ReadonlyArray<NamedRouteParameter>> =
-  Parameters extends []
-    ? EmptyObject
-    : {
-        [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
-      };
+export type ExtractRouteData<Parameters extends Array<NamedRouteParameter>> = Parameters extends []
+  ? EmptyObject
+  : {
+      [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
+    };
 
-export interface EncodedRouteData<Params> {
+export interface RouteData<Params> {
   params: Params;
-  search: {};
-  hash: string;
+  search?: {};
+  hash?: string;
 }
-
-export interface DecodedRouteData<Params> extends EncodedRouteData<Params> {
-  matched: boolean;
-}
-
-const emptyRoute: DecodedRouteData<EmptyObject> = Object.freeze({
-  matched: false,
-  params: Object.freeze({}),
-  search: Object.freeze({}),
-  hash: '',
-});
 
 // Don't prettify if `T` is an empty object since it will return `{}`, which is not correct.
 type Prettify<T> = T extends EmptyObject
@@ -119,10 +115,10 @@ type Prettify<T> = T extends EmptyObject
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
 export class RouteParser<
-  Values extends ReadonlyArray<RouteValue> = [],
+  Values extends Array<RouteValue> = [],
   Data = Prettify<ExtractRouteData<FlattenRouteParameters<Values>>>
 > {
-  readonly #tokens: ReadonlyArray<string | NamedRouteParameter>;
+  readonly #tokens: Array<string | NamedRouteParameter>;
   readonly #routeParameters: NamedRouteParameter[];
   readonly #regex: RegExp;
 
@@ -130,6 +126,11 @@ export class RouteParser<
     // We should probably interleave these in the TTL instead.
     this.#tokens = strings
       .flatMap((str, i) => {
+        // Inject a slash into the first string since URL will do that for us
+        if (i === 0 && !str.startsWith('/')) {
+          str = '/' + str;
+        }
+
         const value = values[i];
         return [str, ...(value instanceof RouteParser ? value.#tokens : [value])];
       })
@@ -170,11 +171,14 @@ export class RouteParser<
     );
   }
 
-  decode(path: string): DecodedRouteData<Data> | DecodedRouteData<EmptyObject> {
-    const { pathname, searchParams, hash } = new URL(path, 'https://example.com');
+  decode(path: string): RouteData<Data> | null {
+    // In the future we can use `URL.parse()`.
+    if (!URL.canParse(path, 'https://a.com')) return null;
+
+    const { pathname, searchParams, hash } = new URL(path, 'https://a.com');
     const results = this.#regex.exec(pathname);
 
-    if (results == null) return emptyRoute;
+    if (results === null) return null;
 
     const params = {} as Data;
 
@@ -184,7 +188,7 @@ export class RouteParser<
       // Offset by one since the first value of results is the matched string
       const strParam = results[i + 1];
 
-      if (strParam === undefined) return emptyRoute;
+      if (strParam === undefined) return null;
 
       // Catch decode errors?
       const param = decoder.decode(decodeURIComponent(strParam));
@@ -192,14 +196,13 @@ export class RouteParser<
     }
 
     return {
-      matched: true,
       params,
       search: Object.fromEntries(searchParams),
       hash,
     };
   }
 
-  encode(data: EncodedRouteData<Data>): string {
+  encode(data: RouteData<Data>): string {
     const search = new URLSearchParams(data.search);
     const path = this.#tokens
       .map((token) =>
@@ -221,7 +224,7 @@ export class RouteParser<
   }
 }
 
-export const route = <const Values extends ReadonlyArray<RouteValue>>(
+export const route = <const Values extends Array<RouteValue>>(
   strings: TemplateStringsArray,
   ...values: Values
 ) => new RouteParser(strings, values);
