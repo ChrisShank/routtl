@@ -9,14 +9,15 @@ import {
   datetime,
   num,
   route,
+  search,
   string,
 } from './index.js';
 
 interface DecodeFixture {
-  route: () => RouteParser;
+  route: () => RouteParser<any, any, any>;
   url: string;
   encodedURL?: string;
-  data: RouteData<Record<string, any>> | null;
+  data: RouteData<Record<string, any>, Record<string, any>> | null;
 }
 
 // Adapted from the URLPattern test suite: https://github.com/kenchris/urlpattern-polyfill/blob/main/test/urlpatterntestdata.json
@@ -290,6 +291,15 @@ const fixtures: DecodeFixture[] = [
       hash: 'bar',
     },
   },
+  {
+    route: () => route`/?${search({ foo: num })}`,
+    url: '/?foo=1',
+    data: {
+      params: {},
+      search: { foo: 1 },
+      hash: '',
+    },
+  },
 ];
 
 for (const { route, url, data, encodedURL } of fixtures) {
@@ -302,7 +312,7 @@ for (const { route, url, data, encodedURL } of fixtures) {
   });
 }
 
-type ErrorFixture = () => RouteParser;
+type ErrorFixture = () => RouteParser<[]>;
 
 const errorFixtures: ErrorFixture[] = [() => route`/${string('id')}/${string('id')}`];
 

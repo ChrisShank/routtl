@@ -3,7 +3,7 @@ export type NamedRouteParameter<Name extends string = string, Data = any> = [
   decoder: Decoder<Data>
 ];
 
-export interface Decoder<Data> {
+export interface Decoder<Data = any> {
   <Name extends string>(name: Name): NamedRouteParameter<Name, Data>;
   decode: (blob: string) => Data;
   encode: (data: Data) => string;
@@ -31,7 +31,6 @@ datetime.encode = (data) => data.toISOString();
 
 export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
   const arrayDecoder: Decoder<Data[]> = <Name extends string>(name: Name) => [name, arrayDecoder];
-
   arrayDecoder.decode = (blob) => {
     const arr = JSON.parse(blob);
     if (!(arr instanceof Array)) {
@@ -39,10 +38,58 @@ export function array<Data>(decoder: Decoder<Data>): Decoder<Data[]> {
     }
     return arr.map((value) => decoder.decode(value));
   };
-
   arrayDecoder.encode = (data) => JSON.stringify(data.map((value) => decoder.encode(value)));
-
   return arrayDecoder;
+}
+
+export interface SearchDecoder<Data = any> extends Decoder<Data> {
+  type: 'search';
+}
+
+export type ExtractDecoderData<D> = D extends Decoder<infer Data> ? Data : never;
+
+export type ExtractSearchData<Decoders extends Record<string, Decoder>> = {
+  [Key in keyof Decoders]: ExtractDecoderData<Decoders[Key]>;
+} & {};
+
+export function search<Decoders extends Record<string, Decoder>>(decoders: Decoders) {
+  const searchDecoder: SearchDecoder<Prettify<ExtractSearchData<Decoders>>> = <Name extends string>(
+    name: Name
+  ) => [name, searchDecoder];
+
+  searchDecoder.type = 'search';
+
+  searchDecoder.decode = (blob) => {
+    const searchParams = new URLSearchParams(blob);
+    const data = {} as any;
+
+    for (const name of Object.keys(decoders)) {
+      const decoder = decoders[name];
+      const searchParam = searchParams.get(name);
+      if (searchParam) {
+        data[name as keyof any] = decoder.decode(searchParam);
+      }
+    }
+
+    return data;
+  };
+
+  searchDecoder.encode = (data) => {
+    const decodedData: Record<string, string> = {};
+
+    for (const name of Object.keys(decoders)) {
+      const decoder = decoders[name];
+      decodedData[name] = decoder.encode(data[name as any]);
+    }
+
+    return new URLSearchParams(decodedData).toString();
+  };
+
+  return searchDecoder;
+}
+
+function isSearchDecoder(value: unknown): value is SearchDecoder {
+  return typeof value === 'function' && (value as any).type === 'search';
 }
 
 export type InferRouteParameterName<P> = P extends NamedRouteParameter<infer Name> ? Name : never;
@@ -53,16 +100,16 @@ export type InferRouteParameterData<P> = P extends NamedRouteParameter<string, i
 
 export type EmptyObject = Record<never, never>;
 
-export type ExtractRouteData<Parameters extends NamedRouteParameter[]> = Parameters extends []
+export type ExtractParamData<Parameters extends NamedRouteParameter[]> = Parameters extends []
   ? EmptyObject
   : {
       [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
     };
 
-export interface RouteData<Params> {
+export interface RouteData<Params, Search> {
   params: Params;
-  search?: {};
-  hash?: string;
+  search: Search;
+  hash: string;
 }
 
 type ExtractRouteParams<Params extends unknown[], Result extends unknown[] = []> = Params extends []
@@ -73,34 +120,57 @@ type ExtractRouteParams<Params extends unknown[], Result extends unknown[] = []>
     : ExtractRouteParams<Tail, Result>
   : never;
 
+type ExtractSearchDecoder<Params extends unknown[]> = Params extends [
+  ...any[],
+  infer Search,
+  string
+]
+  ? Search extends SearchDecoder
+    ? Search
+    : never
+  : never;
+
 // Don't prettify if `T` is an empty object since it will return `{}`, which is not correct.
-type Prettify<T> = T extends EmptyObject
-  ? T
-  : {
-      [K in keyof T]: T[K];
-    } & {};
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
+export type RouteToken = string | NamedRouteParameter;
 
 const escapeRegex = /[-\/\\^$*+?.()|[\]{}]/g;
 
 export class RouteParser<
-  Tokens extends Array<string | NamedRouteParameter> = [],
-  Params = Prettify<ExtractRouteData<ExtractRouteParams<Tokens>>>
+  Tokens extends RouteToken[] | [...RouteToken[], SearchDecoder, string],
+  Params = Prettify<ExtractParamData<ExtractRouteParams<Tokens>>>,
+  Search = Prettify<ExtractDecoderData<ExtractSearchDecoder<Tokens>>>
 > {
-  readonly #tokens: Array<string | NamedRouteParameter>;
+  readonly #tokens: RouteToken[];
   readonly #routeParameters: NamedRouteParameter[] = [];
   readonly #regex: RegExp;
+  readonly #searchDecoder: SearchDecoder | null = null;
 
   get tokens() {
     return this.#tokens;
   }
 
   constructor(tokens: Tokens) {
+    const possibleSearch = tokens.at(-2);
+    if (isSearchDecoder(possibleSearch)) {
+      this.#searchDecoder = possibleSearch;
+      tokens.pop(); // should be an empty string
+      tokens.pop(); // remove decoder;
+      // remove question mark if it exists
+      const lastString = tokens.at(-1);
+      if (typeof lastString === 'string' && lastString.endsWith('?')) {
+        tokens[tokens.length - 1] = lastString.replace('?', '');
+      }
+    }
     // We should probably interleave these in the TTL instead.
-    this.#tokens = tokens;
+    this.#tokens = tokens as RouteToken[];
 
-    const firstToken = tokens[0];
+    const firstToken = this.#tokens[0];
     if (typeof firstToken === 'string' && !firstToken.startsWith('/')) {
-      tokens[0] = '/' + firstToken;
+      this.tokens[0] = '/' + firstToken;
     }
 
     let regexStrings: string[] = [];
@@ -128,11 +198,11 @@ export class RouteParser<
     this.#regex = new RegExp('^' + regexStrings.join('') + '$');
   }
 
-  decode(path: string): RouteData<Params> | null {
+  decode(path: string): RouteData<Params, Search> | null {
     // In the future we can use `URL.parse()`.
     if (!URL.canParse(path, 'https://a.com')) return null;
 
-    const { pathname, searchParams, hash } = new URL(path, 'https://a.com');
+    const { pathname, search, hash } = new URL(path, 'https://a.com');
     const results = this.#regex.exec(pathname);
 
     if (results === null) return null;
@@ -154,30 +224,26 @@ export class RouteParser<
 
     return {
       params,
-      search: Object.fromEntries(searchParams),
+      search: this.#searchDecoder?.decode(search) || {},
       hash: hash.slice(1),
-    };
+    } as RouteData<Params, Search>;
   }
 
-  encode(data: RouteData<Params>): string {
+  encode({ params, search, hash }: RouteData<Params, Search>): string {
     const url = new URL('https://a.com');
 
     url.pathname = this.#tokens
       .map((token) =>
         typeof token === 'string'
           ? token
-          : encodeURIComponent(token[1].encode(data.params[token[0] as keyof Params]))
+          : encodeURIComponent(token[1].encode(params![token[0] as keyof Params]))
       )
       .join('');
 
-    if (data.search) {
-      for (const [key, value] of Object.entries(data.search)) {
-        url.searchParams.append(key, String(value));
-      }
-    }
+    url.search = this.#searchDecoder?.encode(search || {}) || '';
 
-    if (data.hash) {
-      url.hash = data.hash;
+    if (hash) {
+      url.hash = hash;
     }
 
     return `${url.pathname}${url.search}${url.hash}`;
@@ -194,7 +260,7 @@ type FlattenRouteParameters<
 > = Values extends []
   ? Result
   : Values extends [infer Head, ...infer Tail]
-  ? Head extends RouteParser
+  ? Head extends RouteParser<RouteToken[], any>
     ? FlattenRouteParameters<Tail, [...Result, ...InferRouteParserParameters<Head>]>
     : FlattenRouteParameters<Tail, [...Result, Head]>
   : never;
@@ -208,7 +274,9 @@ type InterleaveRouteParams<
   ? InterleaveRouteParams<Tail, [...Result, string, Head]>
   : never;
 
-export const route = <const Values extends (NamedRouteParameter | RouteParser)[]>(
+export const route = <
+  Values extends (NamedRouteParameter | RouteParser<RouteToken[], any> | SearchDecoder)[]
+>(
   strings: TemplateStringsArray,
   ...values: Values
 ) => {
