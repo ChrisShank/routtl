@@ -106,11 +106,11 @@ export type ExtractParamData<Parameters extends NamedRouteParameter[]> = Paramet
       [Value in Parameters[keyof Parameters] as InferRouteParameterName<Value>]: InferRouteParameterData<Value>;
     };
 
-export interface RouteData<Params, Search> {
+export type RouteData<Params, Search> = Prettify<{
   params: Params;
   search: Search;
   hash: string;
-}
+}>;
 
 type ExtractRouteParams<Params extends unknown[], Result extends unknown[] = []> = Params extends []
   ? Result
