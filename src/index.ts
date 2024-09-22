@@ -17,9 +17,13 @@ export const boolean: Decoder<boolean> = <Name extends string>(name: Name) => [n
 boolean.decode = (blob) => blob === 'true';
 boolean.encode = (data) => data.toString();
 
-export const num: Decoder<number> = <Name extends string>(name: Name) => [name, num];
-num.decode = (blob) => +blob;
-num.encode = (data) => data.toString();
+export const int: Decoder<number> = <Name extends string>(name: Name) => [name, int];
+int.decode = (blob) => parseInt(blob, 10);
+int.encode = (data) => data.toString();
+
+export const float: Decoder<number> = <Name extends string>(name: Name) => [name, float];
+float.decode = (blob) => parseFloat(blob);
+float.encode = (data) => data.toString();
 
 export const date: Decoder<Date> = <Name extends string>(name: Name) => [name, date];
 date.decode = (blob) => new Date(blob);
@@ -109,7 +113,7 @@ export type ExtractParamData<Parameters extends NamedRouteParameter[]> = Paramet
 export type RouteData<Params, Search> = Prettify<{
   params: Params;
   search: Search;
-  hash: string;
+  hash?: string;
 }>;
 
 type ExtractRouteParams<Params extends unknown[], Result extends unknown[] = []> = Params extends []

@@ -7,7 +7,7 @@ import {
   boolean,
   date,
   datetime,
-  num,
+  int,
   route,
   search,
   string,
@@ -211,7 +211,7 @@ const URLPatternFixtures: DecodeFixture[] = [
 const fixtures: DecodeFixture[] = [
   ...URLPatternFixtures,
   {
-    route: () => route`/${num('num')}`,
+    route: () => route`/${int('num')}`,
     url: '/1',
     data: {
       params: { num: 1 },
@@ -220,7 +220,7 @@ const fixtures: DecodeFixture[] = [
     },
   },
   {
-    route: () => route`/${num('float')}`,
+    route: () => route`/${int('float')}`,
     url: '/1.01',
     data: {
       params: { float: 1.01 },
@@ -265,7 +265,7 @@ const fixtures: DecodeFixture[] = [
     },
   },
   {
-    route: () => route`/${array(num)('numArray')}`,
+    route: () => route`/${array(int)('numArray')}`,
     url: '/%5B%221%22%2C%222%22%2C%223%22%5D',
     data: {
       params: { numArray: [1, 2, 3] },
@@ -292,7 +292,7 @@ const fixtures: DecodeFixture[] = [
     },
   },
   {
-    route: () => route`/?${search({ foo: num })}`,
+    route: () => route`/?${search({ foo: int })}`,
     url: '/?foo=1',
     data: {
       params: {},
