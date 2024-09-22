@@ -9,13 +9,13 @@
 ```ts
 import { route, string } from 'routtl';
 
-const helloRoute = route`/hello/${['world', string]}`;
+const helloRoute = route`/hello/${string('world')}`;
 
-const url = helloRoute.encode({ world: 'world' });
+const url = helloRoute.encode({ params: { world: 'world' } });
 //     ^ '/hello/world'
 
 const data = helloRoute.decode('/hello/world');
-//     ^ { world: 'world' }
+//     ^ { params: { world: 'world' } }
 ```
 
 ## Overview
@@ -26,9 +26,31 @@ const data = helloRoute.decode('/hello/world');
 
 Default decoders are provided for primitive JS types (e.g. string, number, boolean, date). A simple `Decoder` interface is provided to extend or build your own decoding. Additionally, a decoder factory is provided for arrays of arbitrary types.
 
+Built-in decoders include:
+
+- `string`
+- `int`
+- `float`
+- `date`
+- `datetime`
+- `array`, allows you to define an array of a certain decoder
+
+## Decoding Search Params
+
+At the end of a route definition you can define a way to decode a routes search params. It must be the last interpolated value and be proceeded by a `?`.
+
+```ts
+import { route, search, date } from 'routtl';
+
+const searchRoute = route`/?${search({ filter: date })}`;
+
+const url = searchRoute.encode({ search: { filter: new Date('2000-01-01') } });
+//     ^ '/?filter=2000-01-01'
+```
+
 ## Templating HTML
 
-When templating HTML, you have use `route.encode()` to generate a `href` for an `<a>`. Here is an example using [`lit-html`](https://lit.dev/docs/templates/overview/) as a template engine:
+When templating HTML, you can use `route.encode()` to generate the `href` for an `<a>` tag. Here is an example using [`lit-html`](https://lit.dev/docs/templates/overview/) as a template engine:
 
 ```ts
 import { route, string } from 'routtl';
@@ -36,12 +58,11 @@ import { render, html } from 'lit-html';
 
 const helloRoute = route`/hello/${['world', string]}`;
 
-const url = helloRoute.encode({ world: 'world' });
-
-render(document.body, html`<a href="${url}">Link</a>`);
+render(document.body, html`<a href="${helloRoute.encode({ world: 'world' })}">Link</a>`);
 ```
 
 ## Composing
+
 `RouteParser`s can be composed together as shown here:
 
 ```ts
@@ -49,9 +70,9 @@ import { route, string } from 'routtl';
 
 const helloRoute = route`/hello`;
 
-const worldRoute = route`${helloRoute}/world/${['id', string]}`;
+const worldRoute = route`${helloRoute}/world/${string('id')}`;
 
-const url = helloRoute.encode({ id: 'foo' });
+const url = helloRoute.encode({ params: { id: 'foo' } });
 //     ^ '/hello/world/foo'
 ```
 
@@ -60,7 +81,7 @@ const url = helloRoute.encode({ id: 'foo' });
 - [x] Built-in decoders
 - [x] Decoder type safely
 - [x] Nest Route Parsers
-- [ ] Decode query parameters
+- [x] Decode query parameters
 - [ ] Ignore case and other options
 
 ## Contributing
@@ -71,4 +92,4 @@ See the [guide](https://github.com/ChrisShank/routtl/blob/main/CONTRIBUTING.md).
 
 Lots of inspiration for this project! [@ncthbrt](https://github.com/ncthbrt) was crucial to the early prototypes. `vue-router`, `navaid`, `typesafe-routes` have been influential in the design of these primitives.
 
-There is allow an API called [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) that has recently emerged from the WHATWG standards body that addresses _some_ of the problems `routtle` is solving. At the time of this writing most browsers besides Firefox and Safari support it and a [polyfill](https://github.com/kenchris/urlpattern-polyfill) is available.
+There is also an API called [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) that has recently emerged from the WHATWG standards body that addresses _some_ of the problems `routtl` is solving. At the time of this writing its only supported by Chromium browsers. A 3rd party a [polyfill](https://github.com/kenchris/urlpattern-polyfill) is available as well.
