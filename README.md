@@ -20,7 +20,7 @@ const data = helloRoute.decode('/hello/world');
 
 ## Overview
 
-`Routtl` is a small set of primitives for defining routes and encoding/decoding data to/from that route. It is small (less than 500kb of JS), has no dependencies, and provides type-safe decoding. It uses JavaScript's [tagged template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) to provide a declarative, composable API for defining routes.
+`Routtl` is a small set of primitives for defining routes and encoding/decoding data to/from that route. It is small (around 800 bytes of JavaScript compressed), has no dependencies, and provides type-safe decoding and encoding. It uses JavaScript's [tagged template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) to provide a declarative, composable API for defining routes.
 
 ## Decoders
 
